@@ -27,8 +27,8 @@ Enter any IMDb movie ID and unlock deep AI analysis, audience sentiment, cinemat
 ### 1. Clone and Install
 
 ```bash
-git clone https://github.com/yourusername/movie-insight-builder.git
-cd movie-insight-builder
+git clone https://github.com/Aman-Kumar007/movie-insight
+cd movie-insight
 npm install
 ```
 
