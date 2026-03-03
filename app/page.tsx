@@ -59,7 +59,8 @@ export default function Home() {
     if (e.key === 'Enter') handleSearch();
   };
 
-  const handleSelectMovie = async (id: string, title: string) => {
+  const handleSelectMovie = async (id: string) => {
+    // when the showcase triggers selection it only passes the imdb id
     setImdbId(id);
     setError('');
     setMovieData(null);

@@ -72,7 +72,7 @@ Return ONLY valid JSON:
     }
 
     const text = data.choices?.[0]?.message?.content || '';
-    console.log("Sentiment raw:", text);
+    // debug logging was printing raw sentiment JSON to the server console; removed in production
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
 

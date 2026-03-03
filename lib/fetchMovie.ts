@@ -59,6 +59,8 @@ export async function fetchMovieDetails(
 
 
 // helper that calls AI to extend cast list with character names
+let aiCastWarningShown = false;
+
 async function enhanceCastWithAI(cast: any[], title: string) {
   const groqKey = process.env.GROQ_API_KEY;
   if (!groqKey) return cast;
@@ -72,10 +74,14 @@ ${cast.map(c => c.name).join(', ')}
 
 Generate a realistic extended cast list with character names.
 
-Return ONLY JSON:
+Return ONLY valid JSON. If any name or character contains a double-quote,
+escape it as \\\" so the output remains JSON-parseable.
+
+Example:
 [
   { "name": "Actor Name", "character": "Character Name" }
 ]
+
 Include existing actors + at least 6 more.
 `;
 
@@ -98,13 +104,45 @@ Include existing actors + at least 6 more.
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) return cast;
 
-    const parsed = JSON.parse(jsonMatch[0]);
+    const rawJson = jsonMatch[0];
 
-    return parsed.map((c: any, i: number) => ({
-      name: c.name,
-      character: c.character,
-      order: i,
-    }));
+    const parseCastJson = (str: string) => {
+      const parsed = JSON.parse(str);
+      return parsed.map((c: any, i: number) => ({
+        name: c.name,
+        character: c.character,
+        order: i,
+      }));
+    };
+
+    try {
+      return parseCastJson(rawJson);
+    } catch (parseErr) {
+      if (!aiCastWarningShown) {
+        console.warn('AI Cast parsing failed, ignoring enhancement.', parseErr, '\nraw output:', rawJson);
+        aiCastWarningShown = true;
+      }
+
+      // attempt incremental sanitization before giving up
+      const sanitize = (str: string) => {
+        // 1. fix cases where value was escaped but not wrapped
+        //    e.g. "character": \"Name\"  -> "character": "Name"
+        let s = str.replace(/:\s*\\\"([^\\\"]*)\\\"/g, ': "$1"');
+        // 2. escape any remaining unescaped quotes inside quoted strings
+        s = s.replace(/("(?:name|character)"\s*:\s*")([^"\n]*?)(?="\s*(?:,|\}|\]))/g,
+          (_m, pre, val) => pre + val.replace(/"/g, '\\"'));
+        return s;
+      };
+
+      const repaired = sanitize(rawJson);
+
+      try {
+        return parseCastJson(repaired);
+      } catch {
+        // if sanitization didn't help, just return original cast
+        return cast;
+      }
+    }
 
   } catch (err) {
     console.error('AI Cast Error:', err);
