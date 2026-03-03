@@ -1,10 +1,13 @@
-'use client';
+"use client";
 
 import { useState, useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import MovieResult from '@/components/MovieResult';
 import LoadingOrb from '@/components/LoadingOrb';
-import MovieShowcase from '@/components/MovieShowcase';
-import ParticleField from '@/components/ParticleField';
+
+// Load heavy/visual components dynamically to reduce initial bundle size on mobile
+const MovieShowcase = dynamic(() => import('@/components/MovieShowcase'), { ssr: false });
+const ParticleField = dynamic(() => import('@/components/ParticleField'), { ssr: false, loading: () => null });
 import { validateImdbId } from '@/lib/validators';
 import type { MovieData } from '@/lib/types';
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import LoadingOrb from './LoadingOrb';
 
 // static configuration -- only keep the imdb id and accent color
@@ -49,25 +50,53 @@ function MovieCard({ movie, onSelect }: MovieCardProps) {
   const [transform, setTransform] = useState('');
   const [glowPos, setGlowPos] = useState({ x: 50, y: 50 });
   const [isHovered, setIsHovered] = useState(false);
+  const [isTouch, setIsTouch] = useState(false);
+
+  // detect touch-capable devices to disable hover/mouse math
+  useEffect(() => {
+    const touch = typeof window !== 'undefined' && ('ontouchstart' in window || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches));
+    setIsTouch(Boolean(touch));
+  }, []);
+
+  // rAF throttle refs so we don't set state on every mouse event
+  const rafRef = useRef<number | null>(null);
+  const latestRef = useRef<{ x: number; y: number } | null>(null);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isTouch) return; // avoid heavy calculations on touch devices
     const card = cardRef.current;
     if (!card) return;
 
     const rect = card.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const cx = rect.width / 2;
-    const cy = rect.height / 2;
+    latestRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
 
-    const rotateX = ((y - cy) / cy) * -14;
-    const rotateY = ((x - cx) / cx) * 14;
+    if (rafRef.current == null) {
+      rafRef.current = window.requestAnimationFrame(() => {
+        rafRef.current = null;
+        const vals = latestRef.current;
+        const el = cardRef.current;
+        if (!vals || !el) return;
+        const rect2 = el.getBoundingClientRect();
+        const x = vals.x;
+        const y = vals.y;
+        const cx = rect2.width / 2;
+        const cy = rect2.height / 2;
 
-    setTransform(`perspective(900px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.06,1.06,1.06)`);
-    setGlowPos({ x: (x / rect.width) * 100, y: (y / rect.height) * 100 });
+        const rotateX = ((y - cy) / cy) * -14;
+        const rotateY = ((x - cx) / cx) * 14;
+
+        setTransform(`perspective(900px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.06,1.06,1.06)`);
+        setGlowPos({ x: (x / rect2.width) * 100, y: (y / rect2.height) * 100 });
+      }) as unknown as number;
+    }
   };
 
   const handleMouseLeave = () => {
+    if (rafRef.current != null) {
+      window.cancelAnimationFrame?.(rafRef.current);
+      rafRef.current = null;
+    }
+    latestRef.current = null;
     setTransform('perspective(900px) rotateX(0deg) rotateY(0deg) scale3d(1,1,1)');
     setIsHovered(false);
   };
@@ -75,11 +104,11 @@ function MovieCard({ movie, onSelect }: MovieCardProps) {
   const handleMouseEnter = () => setIsHovered(true);
 
   return (
-    <div
-      ref={cardRef}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      onMouseEnter={handleMouseEnter}
+      <div
+        ref={cardRef}
+        onMouseMove={isTouch ? undefined : handleMouseMove}
+        onMouseLeave={isTouch ? undefined : handleMouseLeave}
+        onMouseEnter={isTouch ? undefined : handleMouseEnter}
       onClick={() => onSelect(movie.id)}
       className="relative cursor-pointer flex-shrink-0"
       style={{
@@ -121,16 +150,18 @@ function MovieCard({ movie, onSelect }: MovieCardProps) {
 
         {/* Poster */}
         <div className="relative" style={{ height: '270px' }}>
-          <img
+          <Image
             src={movie.poster}
             alt={movie.title}
-            className="w-full h-full object-cover"
             width={180}
             height={270}
-            loading="eager"
+            className="w-full h-full object-cover"
+            loading="lazy"
             draggable={false}
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = '/fallback.svg';
+            onError={(e: any) => {
+              try {
+                e.currentTarget.src = '/fallback.svg';
+              } catch {}
             }}
           />
 
@@ -284,6 +315,9 @@ export default function MovieShowcase({ onSelectMovie }: MovieShowcaseProps) {
           style={{
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
+            touchAction: 'pan-x',
+            WebkitOverflowScrolling: 'touch',
+            overscrollBehaviorX: 'contain',
           }}
         >
           {/* Duplicate for a richer feel on wide screens */}

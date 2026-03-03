@@ -27,6 +27,14 @@ export default function MovieResult({ data, onReset }: Props) {
     setReviewAccent(reviewPalette[Math.floor(Math.random() * reviewPalette.length)]);
   }, []);
 
+  const [isSmallScreen, setIsSmallScreen] = useState(false);
+  useEffect(() => {
+    const check = () => setIsSmallScreen(typeof window !== 'undefined' ? window.innerWidth < 640 : false);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
   // fetch reviews when the tab becomes active
   useEffect(() => {
     if (activeTab === 'reviews' && reviews === null) {
@@ -92,7 +100,7 @@ export default function MovieResult({ data, onReset }: Props) {
                     alt={`${data.title} poster`}
                     fill
                     className="object-cover"
-                    unoptimized
+                    loading="lazy"
                   />
                 ) : (
                   <div className="w-full h-full glass-dark flex items-center justify-center">
@@ -210,7 +218,7 @@ export default function MovieResult({ data, onReset }: Props) {
               </span>
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-              {data.cast.map((actor, i) => (
+                {data.cast.slice(0, isSmallScreen ? 8 : data.cast.length).map((actor, i) => (
                 <div
                   key={i}
                   className="group relative rounded-2xl p-[1px] bg-gradient-to-br from-white/10 to-white/5 hover:scale-[1.05] transition-all duration-300"
